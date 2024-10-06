@@ -124,13 +124,13 @@ ui <- fluidPage(
                  ),
                  p("Cualquier uso de los datos debe cumplir con las políticas de licencia y uso de los proveedores de datos."),
                  
-                 h4("Autores")
-                 p("- Ulisses ")
-                 p("- Daniela Sosa")
-                 p("- Alonso Martinez")
-                 p("- Jose Bonilla")
-                 p("- Jorge Castillo")
-                 p("- Dexter Gómez")
+                 h4("Autores: ")
+                 p("Ulisses Hoil")
+                 p("Daniela Sosa")
+                 p("Alonso Martinez")
+                 p("Jose Bonilla")
+                 p("Jorge Castillo")
+                 p("Dexter Gómez")
 
                  h4("Contacto"),
                  p("Para más información, puede contactar al desarrollador del proyecto.")
