@@ -11,6 +11,10 @@ library(purrr)
 library(DT)
 library(ggplot2)
 
+# Specify the application port
+options(shiny.host = "0.0.0.0")
+options(shiny.port = 8180)
+
 # Define la interfaz de usuario
 ui <- fluidPage(
     titlePanel("STAC Landsat Data Downloader"),

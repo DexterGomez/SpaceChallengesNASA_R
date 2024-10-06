@@ -1,9 +1,23 @@
-FROM rocker/shiny:latest
+# Base R Shiny image
+FROM rocker/shiny
 
-RUN apt-get update
 
-RUN Rscript -e "install.packages(c('leaflet', 'leaflet.extras', 'rstac', 'sf', 'terra', 'dplyr', 'purrr', 'DT', 'ggplot2', 'rmarkdown', 'htmlwidgets', 'tidyr', 'ggrepel', 'shinyjs', 'lubridate'))"
+#FROM hvalev/shiny-server-arm:latest
 
-COPY ./app.R /srv/shiny-server/
+#RUN apt-get update
+#RUN apt-get install -y r-base
 
-CMD ["/usr/bin/shiny-server"]
+# Make a directory in the container
+RUN mkdir /home/shiny-app
+
+# Install R dependencies
+RUN Rscript -e 'install.packages(c("leaflet", "leaflet.extras", "rstac", "sf", "terra", "dplyr", "purrr", "DT", "ggplot2", "rmarkdown", "htmlwidgets", "tidyr", "ggrepel", "shinyjs", "lubridate"), repos = "https://cran.rstudio.com/", dependencies = TRUE)'
+
+# Copy the Shiny app code
+COPY app.R /home/shiny-app/app.R
+
+# Expose the application port
+EXPOSE 8180
+
+# Run the R Shiny app
+CMD Rscript /home/shiny-app/app.R
