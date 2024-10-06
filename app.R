@@ -3,7 +3,7 @@ required_packages <- c(
     "shiny",
     "shinythemes",
     "leaflet",
-    "leaflet.extras"
+    "leaflet.extras",
     "rstac",
     "sf",
     "terra",
