@@ -38,7 +38,7 @@ options(shiny.port = 8180)
 # Define la interfaz de usuario
 ui <- fluidPage(
     theme = shinytheme("cerulean"),
-    titlePanel("Visualización Satelital y Análisis de Imágenes"),
+    titlePanel("Effective Earth: Visualización Satelital y Análisis de Imágenes"),
     
     tabsetPanel(
         tabPanel("Visualización de Datos",
@@ -123,6 +123,15 @@ ui <- fluidPage(
                      tags$li("Datos satelitales proporcionados por el Programa Landsat de la NASA y el Servicio Geológico de los Estados Unidos (USGS).")
                  ),
                  p("Cualquier uso de los datos debe cumplir con las políticas de licencia y uso de los proveedores de datos."),
+                 
+                 h4("Autores")
+                 p("- Ulisses ")
+                 p("- Daniela Sosa")
+                 p("- Alonso Martinez")
+                 p("- Jose Bonilla")
+                 p("- Jorge Castillo")
+                 p("- Dexter Gómez")
+
                  h4("Contacto"),
                  p("Para más información, puede contactar al desarrollador del proyecto.")
         )
