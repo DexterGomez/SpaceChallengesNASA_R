@@ -1,39 +1,23 @@
-# Verificar e instalar paquetes necesarios
-required_packages <- c(
-    "shiny",
-    "shinythemes",
-    "leaflet",
-    "leaflet.extras",
-    "rstac",
-    "sf",
-    "terra",
-    "dplyr",
-    "purrr",
-    "DT",
-    "ggplot2",
-    "rmarkdown",
-    "htmlwidgets",
-    "tidyr",
-    "ggrepel",
-    "shinyjs",
-    "lubridate"  # Para manejar fechas y tiempos
-)
 
-install_if_missing <- function(packages) {
-    installed_packages <- installed.packages()[,"Package"]
-    for (pkg in packages) {
-        if (!pkg %in% installed_packages) {
-            message(paste("Instalando paquete:", pkg))
-            install.packages(pkg, dependencies = TRUE)
-        }
-        library(pkg, character.only = TRUE)
-    }
-}
-
-install_if_missing(required_packages)
-
-options(shiny.host = "0.0.0.0")
-options(shiny.port = 8180)
+library("shiny")
+library("shinythemes")
+library("leaflet")
+library("leaflet.extras")
+library("rstac")
+library("sf")
+library("terra")
+library("dplyr")
+library("purrr")
+library("DT")
+library("ggplot2")
+library("rmarkdown")
+library("htmlwidgets")
+library("tidyr")
+library("ggrepel")
+library("shinyjs")
+library("lubridate")
+library("httr")
+library("jsonlite")
 
 # Define la interfaz de usuario
 ui <- fluidPage(
@@ -105,15 +89,33 @@ ui <- fluidPage(
                      )
                  )
         ),
+        tabPanel("Seguimiento de Satélite",
+                 sidebarLayout(
+                   sidebarPanel(
+                     h4("Información de Seguimiento en Tiempo Real"),
+                     p("El satélite Landsat sigue una órbita polar sincronizada con el sol. En esta pestaña, puedes visualizar su posición actual."),
+                     actionButton("update_position", "Actualizar Posición", class = "btn btn-primary"),
+                     width = 3
+                   ),
+                   mainPanel(
+                     h4("Mapa en Tiempo Real"),
+                     leafletOutput("satellite_map", height = "500px"),
+                     br(),
+                     h4("Posición Actual del Satélite"),
+                     verbatimTextOutput("satellite_position")
+                   )
+                 )
+        ),
         tabPanel("Acerca del Proyecto",
                  h3("Visualización Satelital y Análisis de Imágenes"),
-                 p("Esta aplicación permite a los usuarios buscar y analizar imágenes satelitales de Landsat 8 a través de la interfaz STAC API."),
+                 p("Esta aplicación permite a los usuarios buscar y analizar imágenes satelitales de Landsat a través de la interfaz STAC API."),
                  h4("Instrucciones Generales"),
                  p("1. En la pestaña 'Visualización de Datos', utilice el mapa para dibujar un polígono o marcar su ubicación de interés."),
                  p("2. Ajuste los parámetros de búsqueda según sus necesidades y haga clic en 'Buscar Datos'."),
                  p("3. Revise los resultados de la búsqueda y seleccione una imagen para visualizar."),
                  p("4. En la pestaña 'Imagen Seleccionada', puede agregar marcadores para analizar los valores espectrales."),
                  p("5. En la pestaña 'Análisis Temporal', seleccione un punto y un rango de fechas para analizar la variación temporal de los valores espectrales."),
+                 p("6. En la pestaña 'Seguimiento del Satélite', actualice la posición del satélite y visualícela en tiempo real."),
                  h4("Citas y Referencias"),
                  p("Esta aplicación utiliza los siguientes recursos y bibliotecas:"),
                  tags$ul(
@@ -123,17 +125,16 @@ ui <- fluidPage(
                      tags$li("Datos satelitales proporcionados por el Programa Landsat de la NASA y el Servicio Geológico de los Estados Unidos (USGS).")
                  ),
                  p("Cualquier uso de los datos debe cumplir con las políticas de licencia y uso de los proveedores de datos."),
-                 
-                 h4("Autores: "),
-                 p("Ulisses Hoil"),
-                 p("Daniela Sosa"),
-                 p("Alonso Martinez"),
-                 p("Jose Bonilla"),
-                 p("Jorge Castillo"),
-                 p("Dexter Gómez"),
-
                  h4("Contacto"),
-                 p("Para más información, puede contactar al desarrollador del proyecto.")
+                 p("Para más información, puede contactar al desarrollador del proyecto."),
+                 tags$ul(
+                     tags$li("Edoardo Alonso Martínez tags$lierez"),
+                     tags$li("Dexter Enrique Gómez Ek"),
+                     tags$li("Jose de Jesus Bonilla Anguas"),
+                     tags$li("Jorge Luis Castillo Ruz"),
+                     tags$li("Aarón Ulises tags$lioot Hoil"),
+                     tags$li("Daniela Guadalutags$lie Sosa Moreno")
+                 ),
         )
     )
 )
@@ -153,8 +154,121 @@ server <- function(input, output, session) {
         markers = list(),
         # Para análisis temporal
         temporal_point = NULL,
-        temporal_data = NULL
+        temporal_data = NULL,
+        satellite_position = NULL,
+        auto_update = FALSE  # Variable para controlar si la actualización automática está activa
     )
+    
+    # Función para obtener la posición del satélite con reintento y mayor timeout
+    get_satellite_position <- function(url, retries = 3) {
+        attempt <- 1
+        while (attempt <= retries) {
+            response <- tryCatch(
+                httr::GET(url, timeout(30)),  # Aumentamos el timeout a 30 segundos
+                error = function(e) {
+                    NULL  # Si hay un error, devolver NULL
+                }
+            )
+            if (!is.null(response) && httr::status_code(response) == 200) {
+                return(response)
+            }
+            attempt <- attempt + 1
+            Sys.sleep(2)  # Esperar 2 segundos antes de reintentar
+        }
+        return(NULL)  # Si se alcanzó el número máximo de intentos, devolver NULL
+    }
+
+    # Renderizar el mapa base con leaflet para la pestaña "Seguimiento del Satélite"
+    output$satellite_map <- renderLeaflet({
+        leaflet() %>%
+            addProviderTiles(providers$CartoDB.Positron) %>%
+            setView(lng = 0, lat = 0, zoom = 2)
+    })
+
+    # Actualizar la posición del satélite una vez que el usuario presiona el botón
+    observeEvent(input$update_position, {
+        # Marcar que la actualización automática está activa
+        values$auto_update <- TRUE
+        
+        # API de OrbTrack para obtener la posición del satélite Landsat
+        url <- "https://api.n2yo.com/rest/v1/satellite/positions/39084/0/0/0/1/&apiKey=J3NSHX-SST3ZV-QMQEYE-5CK0"  # Sustituir DEMO_KEY por una clave válida
+        
+        response <- get_satellite_position(url)
+        
+        if (!is.null(response)) {
+            data <- httr::content(response, as = "text", encoding = "UTF-8")
+            json_data <- jsonlite::fromJSON(data)
+            
+            if (!is.null(json_data$positions) && nrow(json_data$positions) > 0) {
+                sat_position <- json_data$positions[1, ]
+                values$satellite_position <- c(sat_position$satlatitude, sat_position$satlongitude)
+                
+                leafletProxy("satellite_map") %>%
+                    clearMarkers() %>%
+                    addMarkers(
+                        lng = values$satellite_position[2],
+                        lat = values$satellite_position[1],
+                        popup = paste("Landsat - Latitud:", round(values$satellite_position[1], 4),
+                                      "Longitud:", round(values$satellite_position[2], 4))
+                    )
+                
+                output$satellite_position <- renderPrint({
+                    cat("Latitud:", round(values$satellite_position[1], 4), 
+                        "Longitud:", round(values$satellite_position[2], 4))
+                })
+            } else {
+                showNotification("No se encontraron posiciones en la respuesta.", type = "error")
+            }
+        } else {
+            showNotification("Error al obtener la posición del satélite después de varios intentos.", type = "error")
+        }
+    })
+    
+        # Configurar el temporizador que actualizará la posición cada 3 segundos
+    autoInvalidate <- reactiveTimer(3000)  # Actualización cada 3 segundos
+
+    # Lógica para la actualización automática de la posición del satélite
+    observe({
+        req(values$auto_update)  # Solo ejecutar si el usuario activó la actualización automática
+        autoInvalidate()  # Dispara la actualización automática cada 10 segundos
+        
+        # API de OrbTrack para obtener la posición del satélite Landsat
+        url <- "https://api.n2yo.com/rest/v1/satellite/positions/39084/0/0/0/1/&apiKey=J3NSHX-SST3ZV-QMQEYE-5CK0"  # Sustituir DEMO_KEY por una clave válida
+        
+        response <- get_satellite_position(url)
+        
+        if (!is.null(response)) {
+            data <- httr::content(response, as = "text", encoding = "UTF-8")
+            json_data <- jsonlite::fromJSON(data)
+            
+            if (!is.null(json_data$positions) && nrow(json_data$positions) > 0) {
+                sat_position <- json_data$positions[1, ]
+                values$satellite_position <- c(sat_position$satlatitude, sat_position$satlongitude)
+                # Definir el ícono personalizado más grande
+                satellite_icon <- makeIcon(
+                    iconUrl = "https://example.com/satellite_icon.png",  # URL del icono
+                    iconWidth = 75, iconHeight = 75  # Cambia estos valores para ajustar el tamaño
+                )
+                leafletProxy("satellite_map") %>%
+                    clearMarkers() %>%
+                    addMarkers(
+                        lng = values$satellite_position[2],
+                        lat = values$satellite_position[1],
+                        popup = paste("Landsat - Latitud:", round(values$satellite_position[1], 4),
+                                      "Longitud:", round(values$satellite_position[2], 4))
+                    )
+                
+                output$satellite_position <- renderPrint({
+                    cat("Latitud:", round(values$satellite_position[1], 4), 
+                        "Longitud:", round(values$satellite_position[2], 4))
+                })
+            } else {
+                showNotification("No se encontraron posiciones en la respuesta.", type = "error")
+            }
+        } else {
+            showNotification("Error al obtener la posición del satélite después de varios intentos.", type = "error")
+        }
+    })
     
     # Renderiza el mapa base con leaflet para la pestaña "Visualización de Datos"
     output$map <- renderLeaflet({
