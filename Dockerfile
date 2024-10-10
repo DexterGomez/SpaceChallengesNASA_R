@@ -1,9 +1,6 @@
 # Base R Shiny image
 FROM ubuntu:24.04
 
-RUN locale-gen es_ES.UTF-8
-ENV LANG es_ES.UTF-8
-
 RUN apt-get update
 RUN apt-get install -y r-base libgdal-dev libudunits2-dev
 
