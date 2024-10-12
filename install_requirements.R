@@ -1,23 +1,23 @@
 required_packages <- c(
-  "shiny",
-  "shinythemes",
-  "leaflet",
-  "leaflet.extras",
-  "rstac",
-  "sf",
-  "terra",
-  "dplyr",
-  "purrr",
-  "DT",
-  "ggplot2",
-  "rmarkdown",
-  "htmlwidgets",
-  "tidyr",
-  "ggrepel",
-  "shinyjs",
-  "lubridate",
-  "httr",  # Para realizar solicitudes HTTP a la API de seguimiento
-  "jsonlite"  # Para procesar las respuestas en formato JSON
+    "rstac",
+    "shiny",
+    "shinythemes",
+    "shinyjs",
+    "leaflet",
+    "leaflet.extras",
+    "sf",
+    "terra",
+    "dplyr",
+    "purrr",
+    "DT",
+    "ggplot2",
+    "rmarkdown",
+    "htmlwidgets",
+    "tidyr",
+    "ggrepel",
+    "lubridate",
+    "httr",  # Para realizar solicitudes HTTP a la API de seguimiento
+    "jsonlite"  # Para procesar las respuestas en formato JSON
 )
 
 install_if_missing <- function(packages) {
